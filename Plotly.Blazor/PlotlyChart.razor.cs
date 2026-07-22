@@ -15,6 +15,8 @@ namespace Plotly.Blazor
     /// </summary>
     public partial class PlotlyChart : IAsyncDisposable, IDisposable
     {
+        private bool hiddenChanged;
+
         /// <summary>
         ///     Id of the div element.
         /// </summary>
@@ -26,6 +28,13 @@ namespace Plotly.Blazor
         /// </summary>
         [Parameter]
         public bool UseBasicVersion { get; set; }
+
+        /// <summary>
+        ///     Hides the chart without removing or disposing the component.
+        ///     When the chart becomes visible again, it is refreshed automatically.
+        /// </summary>
+        [Parameter]
+        public bool Hidden { get; set; }
 
         /// <summary>
         ///     Data of the charts.
@@ -99,7 +108,7 @@ namespace Plotly.Blazor
         private PlotlyJsInterop Interop { get; set; }
 
         /// <inheritdoc/>
-        protected override bool ShouldRender() => false;
+        protected override bool ShouldRender() => hiddenChanged;
 
         /// <inheritdoc />
         protected override void OnInitialized()
@@ -111,6 +120,8 @@ namespace Plotly.Blazor
         /// <inheritdoc/>
         public override async Task SetParametersAsync(ParameterView parameters)
         {
+            hiddenChanged = parameters.TryGetValue<bool>(nameof(Hidden), out var newHidden) && newHidden != Hidden;
+
             await base.SetParametersAsync(parameters);
 
             if (string.IsNullOrWhiteSpace(Id))
@@ -148,10 +159,17 @@ namespace Plotly.Blazor
         /// <inheritdoc/>
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
+            var refreshAfterShow = hiddenChanged && !Hidden;
+            hiddenChanged = false;
+
             if (firstRender)
             {
                 await NewPlot();
                 AfterRender?.Invoke();
+            }
+            else if (refreshAfterShow)
+            {
+                await React();
             }
 
             await base.OnAfterRenderAsync(firstRender);

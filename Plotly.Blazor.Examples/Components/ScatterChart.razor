@@ -1,23 +1,27 @@
-﻿@using Blazor_Layout = Layout
-@using Examples_Helper = Helper
-@using Plotly.Blazor.LayoutLib
+﻿@using Plotly.Blazor.LayoutLib
 @using Plotly.Blazor.Traces.ScatterLib
 
-<PlotlyChart style="height: 60vh; min-height: 350px" @bind-Config="config" @bind-Layout="layout" @bind-Data="data" @ref="chart" AfterRender="ExtendData" />
-<br />
-<div class="d-flex gap-1 justify-end">
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => chart.Clear()">Clear</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DeleteScatter">Pop</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddScatter">Push</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Restyle">Rename</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PrependData">Prepend</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExtendData">Extend</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PrependWithLimit">Prepend (Max. 100)</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExtendWithLimit">Extend (Max. 100)</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExportImage">Show Image</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExportImageStatic">Show Image Static</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DownloadImage">Download</MudButton>
-</div>
+
+
+<MudStack>
+    <div style="height: 60vh; min-height: 350px">
+        <PlotlyChart Hidden="@isChartHidden" @bind-Config="config" @bind-Layout="layout" @bind-Data="data" @ref="chart" AfterRender="ExtendData" />
+    </div>
+    <MudDivider />
+    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="1" Justify="Justify.FlexStart">
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => chart.Clear()">Clear</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="DeleteScatter">Pop</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="AddScatter">Push</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="Restyle">Rename</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="PrependData">Prepend</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="ExtendData">Extend</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="PrependWithLimit">Prepend (100)</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="ExtendWithLimit">Extend (100)</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="ExportImage">Show Image</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="DownloadImage">Download</MudButton>
+        <MudButton Size="Size.Medium" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => isChartHidden = !isChartHidden">@(isChartHidden ? "Show" : "Hide")</MudButton>
+    </MudStack>
+</MudStack>
 
 @if (imgSource != null)
 {
@@ -30,43 +34,43 @@
 
 @code
 {
-    [CascadingParameter]
-    private MudTheme Theme { get; set; }
+    [CascadingParameter] private MudTheme Theme { get; set; }
 
     private PlotlyChart chart;
     private Config config;
     private Layout layout;
     private IList<ITrace> data;
     private string imgSource;
+    private bool isChartHidden;
 
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        config = new Config
-            {
-                Responsive = true
-            };
+        config = new()
+        {
+            Responsive = true
+        };
 
-        layout = new Layout
+        layout = new()
+        {
+            Title = new()
             {
-                Title = new Title
-                {
-                    Text = GetType().Name
-                },
-                PaperBgColor = Theme.PaletteDark.Surface.ToString(),
-                PlotBgColor = Theme.PaletteDark.Surface.ToString(),
-                Font = new Font
-                {
-                    Color = Theme.PaletteDark.TextPrimary.ToString()
-                },
-                YAxis = new List<YAxis>
+                Text = GetType().Name
+            },
+            PaperBgColor = Theme.PaletteDark.Surface.ToString(),
+            PlotBgColor = Theme.PaletteDark.Surface.ToString(),
+            Font = new()
+            {
+                Color = Theme.PaletteDark.TextPrimary.ToString()
+            },
+            YAxis = new List<YAxis>
             {
                 new()
                 {
-                    Title = new LayoutLib.YAxisLib.Title { Text = "Scatter Unit" }
+                    Title = new() { Text = "Scatter Unit" }
                 }
             }
-            };
+        };
 
         data = new List<ITrace>
         {
@@ -86,12 +90,12 @@
     {
         var (x, y) = Helper.GenerateData(0, 100);
         await chart.AddTrace(new Scatter
-            {
-                Name = $"ScatterTrace{data.Count + 1}",
-                Mode = ModeFlag.Lines | ModeFlag.Markers,
-                X = x,
-                Y = y
-            });
+        {
+            Name = $"ScatterTrace{data.Count + 1}",
+            Mode = ModeFlag.Lines | ModeFlag.Markers,
+            X = x,
+            Y = y
+        });
     }
 
     private async Task DeleteScatter()
@@ -104,19 +108,6 @@
         imgSource = await chart.ToImage(ImageFormat.Png, 400, 800);
     }
 
-    private async Task ExportImageStatic()
-    {
-        var chartDefinition = new ChartDefinition
-        {
-            Data = this.chart.Data,
-            Layout = this.chart.Layout,
-            Config = this.chart.Config
-        };
-
-        var interop = new PlotlyJsInterop(this.JsRunTime, new PlotlyChart(), true);
-
-        imgSource = await PlotlyChart.ToImage(interop, chartDefinition, ImageFormat.Png, 400, 800);
-    }
 
     private async Task DownloadImage()
     {
