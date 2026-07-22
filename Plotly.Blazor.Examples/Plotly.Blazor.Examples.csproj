@@ -7,8 +7,12 @@
         <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" />
+        <PackageReference Condition="'$(TargetFramework)' == 'net8.0'" Include="Microsoft.AspNetCore.Components.WebAssembly" VersionOverride="8.*" />
+        <PackageReference Condition="'$(TargetFramework)' == 'net8.0'" Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" VersionOverride="8.*" PrivateAssets="all" />
+        <PackageReference Condition="'$(TargetFramework)' == 'net9.0'" Include="Microsoft.AspNetCore.Components.WebAssembly" VersionOverride="9.*" />
+        <PackageReference Condition="'$(TargetFramework)' == 'net9.0'" Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" VersionOverride="9.*" PrivateAssets="all" />
+        <PackageReference Condition="'$(TargetFramework)' == 'net10.0'" Include="Microsoft.AspNetCore.Components.WebAssembly" VersionOverride="10.*" />
+        <PackageReference Condition="'$(TargetFramework)' == 'net10.0'" Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" VersionOverride="10.*" PrivateAssets="all" />
         <PackageReference Include="MudBlazor" />
         <PackageReference Include="PublishSPAforGitHubPages.Build" />
     </ItemGroup>
@@ -34,14 +38,5 @@
     </ItemGroup>
     <ItemGroup>
         <Folder Include="wwwroot\css\highlight\" />
-    </ItemGroup>
-    <ItemGroup>
-      <PackageVersion Update="GitVersion.MsBuild" Version="6.7.0" />
-    </ItemGroup>
-    <ItemGroup>
-      <PackageReference Update="GitVersion.MsBuild">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-      </PackageReference>
     </ItemGroup>
 </Project>

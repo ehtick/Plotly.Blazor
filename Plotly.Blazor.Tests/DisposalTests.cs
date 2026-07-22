@@ -59,7 +59,7 @@ public class DisposalTests
         await chart.DisposeAsync();
         var importCallCount = jsRuntime.ImportCallCount;
         var invocationCallCount = jsRuntime.Module.InvocationCallCount;
-        await Assert.ThatAsync(() => chart.React(), Throws.Nothing);
+        await Assert.ThatAsync((Func<Task>)(async () => await chart.React()), Throws.Nothing);
 
         jsRuntime.ImportCallCount.Should().Be(importCallCount);
         jsRuntime.Module.InvocationCallCount.Should().Be(invocationCallCount);
@@ -129,8 +129,8 @@ public class DisposalTests
 
         var dotNetObjectReference = GetDotNetObjectReference(interop);
 
-        await Assert.ThatAsync(() => interop.React(CancellationToken.None), Throws.TypeOf<InvalidOperationException>());
-        await Assert.ThatAsync(() => interop.DisposeAsync().AsTask(), Throws.Nothing);
+        await Assert.ThatAsync((Func<Task>)(async () => await interop.React(CancellationToken.None)), Throws.TypeOf<InvalidOperationException>());
+        await Assert.ThatAsync((Func<Task>)(async () => await interop.DisposeAsync().AsTask()), Throws.Nothing);
         GetDisposed(dotNetObjectReference).Should().BeTrue();
     }
 
@@ -151,7 +151,7 @@ public class DisposalTests
         var dotNetObjectReference = GetDotNetObjectReference(interop);
 
         await interop.React(CancellationToken.None);
-        await Assert.ThatAsync(() => interop.DisposeAsync().AsTask(), Throws.Nothing);
+        await Assert.ThatAsync((Func<Task>)(async () => await interop.DisposeAsync().AsTask()), Throws.Nothing);
         GetDisposed(dotNetObjectReference).Should().BeTrue();
         jsRuntime.Module.DisposeCalled.Should().BeTrue();
     }
