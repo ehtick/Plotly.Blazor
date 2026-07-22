@@ -59,6 +59,14 @@ Info: *The chart reference is important so that we can update the chart later.*
 <PlotlyChart @bind-Config="config" @bind-Layout="layout" @bind-Data="data" @ref="chart"/>
 ```
 
+To temporarily hide a chart without disposing it, use the `Hidden` parameter instead of conditional rendering:
+
+```razor
+<PlotlyChart Hidden="@hideChart" @bind-Config="config" @bind-Layout="layout" @bind-Data="data" @ref="chart"/>
+```
+
+The component reference remains valid while hidden. The chart refreshes automatically when it becomes visible again.
+
 **Generate some initial data for your plot.**
 
 ```razor
