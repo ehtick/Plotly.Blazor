@@ -286,8 +286,9 @@ namespace Plotly.Blazor.Traces
         public Plotly.Blazor.Traces.PieLib.LegendGroupTitle LegendGroupTitle { get; set;} 
 
         /// <summary>
-        ///     Sets the legend rank for this trace. Items and groups with smaller ranks
-        ///     are presented on top/left side while with <c>reversed</c> <c>legend.traceorder</c>
+        ///     Sets the legend rank for this pie. If passed as an array, this will set
+        ///     the legend rank of the individual pie slices. Items and groups with smaller
+        ///     ranks are presented on top/left side while with <c>reversed</c> <c>legend.traceorder</c>
         ///     they are on bottom/right side. The default legendrank is 1000, so that you
         ///     can use ranks less than 1000 to place certain items before all unranked
         ///     items, and ranks greater than 1000 to go after all unranked items. When
@@ -296,6 +297,26 @@ namespace Plotly.Blazor.Traces
         /// </summary>
         [JsonPropertyName(@"legendrank")]
         public decimal? LegendRank { get; set;} 
+
+        /// <summary>
+        ///     Sets the legend rank for this pie. If passed as an array, this will set
+        ///     the legend rank of the individual pie slices. Items and groups with smaller
+        ///     ranks are presented on top/left side while with <c>reversed</c> <c>legend.traceorder</c>
+        ///     they are on bottom/right side. The default legendrank is 1000, so that you
+        ///     can use ranks less than 1000 to place certain items before all unranked
+        ///     items, and ranks greater than 1000 to go after all unranked items. When
+        ///     having unranked or equal rank items shapes would be displayed after traces
+        ///     i.e. according to their order in data and layout.
+        /// </summary>
+        [JsonPropertyName(@"legendrank")]
+        [Array]
+        public IList<decimal?> LegendRankArray { get; set;} 
+
+        /// <summary>
+        ///     Sets the source reference on Chart Studio Cloud for <c>legendrank</c>.
+        /// </summary>
+        [JsonPropertyName(@"legendranksrc")]
+        public string LegendRankSrc { get; set;} 
 
         /// <summary>
         ///     Sets the source reference on Chart Studio Cloud for <c>legend</c>.
@@ -766,6 +787,16 @@ namespace Plotly.Blazor.Traces
                     LegendRank.Equals(other.LegendRank)
                 ) && 
                 (
+                    Equals(LegendRankArray, other.LegendRankArray) ||
+                    LegendRankArray != null && other.LegendRankArray != null &&
+                    LegendRankArray.SequenceEqual(other.LegendRankArray)
+                ) &&
+                (
+                    LegendRankSrc == other.LegendRankSrc ||
+                    LegendRankSrc != null &&
+                    LegendRankSrc.Equals(other.LegendRankSrc)
+                ) && 
+                (
                     LegendSrc == other.LegendSrc ||
                     LegendSrc != null &&
                     LegendSrc.Equals(other.LegendSrc)
@@ -984,6 +1015,8 @@ namespace Plotly.Blazor.Traces
                 if (LegendGroup != null) hashCode = hashCode * 59 + LegendGroup.GetHashCode();
                 if (LegendGroupTitle != null) hashCode = hashCode * 59 + LegendGroupTitle.GetHashCode();
                 if (LegendRank != null) hashCode = hashCode * 59 + LegendRank.GetHashCode();
+                if (LegendRankArray != null) hashCode = hashCode * 59 + LegendRankArray.GetHashCode();
+                if (LegendRankSrc != null) hashCode = hashCode * 59 + LegendRankSrc.GetHashCode();
                 if (LegendSrc != null) hashCode = hashCode * 59 + LegendSrc.GetHashCode();
                 if (LegendWidth != null) hashCode = hashCode * 59 + LegendWidth.GetHashCode();
                 if (Marker != null) hashCode = hashCode * 59 + Marker.GetHashCode();

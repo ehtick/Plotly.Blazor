@@ -20,13 +20,14 @@ namespace Plotly.Blazor;
 /// <param name="useBasicVersion"></param>
 public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBasicVersion) : IAsyncDisposable, IDisposable
 {
-    private const string InteropPath = "./_content/Plotly.Blazor/plotly-interop-7.1.0.js";
-    private const string PlotlyPath = "./_content/Plotly.Blazor/plotly-3.5.0.min.js";
-    private const string PlotlyBasicPath = "./_content/Plotly.Blazor/plotly-basic-3.5.0.min.js";
+    private const string InteropPath = "./_content/Plotly.Blazor/plotly-interop-7.2.0.js";
+    private const string PlotlyPath = "./_content/Plotly.Blazor/plotly-3.7.0.min.js";
+    private const string PlotlyBasicPath = "./_content/Plotly.Blazor/plotly-basic-3.7.0.min.js";
 
     private readonly DotNetObjectReference<PlotlyChart> dotNetObj = DotNetObjectReference.Create(chart);
     private readonly Lazy<Task<IJSObjectReference>> moduleTask = new(LoadModulesAsync(jsRuntime, useBasicVersion));
-    private bool disposed;
+    private readonly SemaphoreSlim lifecycleSemaphore = new(1, 1);
+    private int disposeState;
 
     private static async Task<IJSObjectReference> LoadModulesAsync(IJSRuntime jsRuntime, bool useBasicVersion)
     {
@@ -49,6 +50,62 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
         }
     };
 
+    private async Task ExecuteAsync(
+        Func<IJSObjectReference, PlotlyChart, ValueTask> action,
+        CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref disposeState) != 0)
+        {
+            return;
+        }
+
+        await lifecycleSemaphore.WaitAsync(cancellationToken);
+
+        try
+        {
+            // A component reference can still point to an old instance after Blazor has
+            // removed it. Calls on that disposed instance intentionally become no-ops.
+            if (Volatile.Read(ref disposeState) != 0)
+            {
+                return;
+            }
+
+            var runtime = await moduleTask.Value;
+            await action(runtime, dotNetObj.Value);
+        }
+        finally
+        {
+            lifecycleSemaphore.Release();
+        }
+    }
+
+    private async Task<TResult> ExecuteAsync<TResult>(
+        Func<IJSObjectReference, PlotlyChart, ValueTask<TResult>> action,
+        CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref disposeState) != 0)
+        {
+            return default;
+        }
+
+        await lifecycleSemaphore.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (Volatile.Read(ref disposeState) != 0)
+            {
+                return default;
+            }
+
+            var runtime = await moduleTask.Value;
+            return await action(runtime, dotNetObj.Value);
+        }
+        finally
+        {
+            lifecycleSemaphore.Release();
+        }
+    }
+
     /// <summary>
     ///     Can be used to add a new trace.
     /// </summary>
@@ -57,11 +114,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task AddTrace(ITrace trace, int? index, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-        await jsRuntime.InvokeVoidAsync("addTrace",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            trace?.PrepareJsInterop(SerializerOptions), index);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("addTrace",
+                cancellationToken,
+                currentChart.Id,
+                trace?.PrepareJsInterop(SerializerOptions), index), cancellationToken);
     }
 
     /// <summary>
@@ -71,11 +128,10 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task DeleteTrace(int index, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("deleteTrace",
-            cancellationToken,
-            dotNetObj.Value.Id, index);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("deleteTrace",
+                cancellationToken,
+                currentChart.Id, index), cancellationToken);
     }
 
     /// <summary>
@@ -88,10 +144,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task<string> DownloadImage(ImageFormat format, uint height, uint width, string fileName, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        return await jsRuntime.InvokeAsync<string>("downloadImage", cancellationToken,
-            dotNetObj.Value.Id, format, height, width, fileName);
+        return await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeAsync<string>("downloadImage", cancellationToken,
+                currentChart.Id, format, height, width, fileName), cancellationToken);
     }
 
     /// <summary>
@@ -104,12 +159,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task ExtendTraces(IEnumerable<IEnumerable<object>> x, IEnumerable<IEnumerable<object>> y, IEnumerable<int> indices, int? max, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("extendTraces",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            x, y, indices, max);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("extendTraces",
+                cancellationToken,
+                currentChart.Id,
+                x, y, indices, max), cancellationToken);
     }
 
 
@@ -124,12 +178,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task ExtendTraces3D(IEnumerable<IEnumerable<object>> x, IEnumerable<IEnumerable<object>> y, IEnumerable<IEnumerable<object>> z, IEnumerable<int> indices, int? max, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("extendTraces3D",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            x, y, z, indices, max);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("extendTraces3D",
+                cancellationToken,
+                currentChart.Id,
+                x, y, z, indices, max), cancellationToken);
     }
 
     /// <summary>
@@ -139,15 +192,14 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task NewPlot(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("newPlot",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            dotNetObj.Value.Data?.Select(trace => trace?.PrepareJsInterop(SerializerOptions)),
-            dotNetObj.Value.Layout?.PrepareJsInterop(SerializerOptions),
-            dotNetObj.Value.Config?.PrepareJsInterop(SerializerOptions),
-            dotNetObj.Value.Frames?.PrepareJsInterop(SerializerOptions));
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("newPlot",
+                cancellationToken,
+                currentChart.Id,
+                currentChart.Data?.Select(trace => trace?.PrepareJsInterop(SerializerOptions)),
+                currentChart.Layout?.PrepareJsInterop(SerializerOptions),
+                currentChart.Config?.PrepareJsInterop(SerializerOptions),
+                currentChart.Frames?.PrepareJsInterop(SerializerOptions)), cancellationToken);
     }
 
     /// <summary>
@@ -160,12 +212,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task PrependTraces(IEnumerable<IEnumerable<object>> x, IEnumerable<IEnumerable<object>> y, IEnumerable<int> indices, int? max, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("prependTraces",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            x, y, indices, max);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("prependTraces",
+                cancellationToken,
+                currentChart.Id,
+                x, y, indices, max), cancellationToken);
     }
 
     /// <summary>
@@ -179,12 +230,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task PrependTraces3D(IEnumerable<IEnumerable<object>> x, IEnumerable<IEnumerable<object>> y, IEnumerable<IEnumerable<object>> z, IEnumerable<int> indices, int? max, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("prependTraces3D",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            x, y, z, indices, max);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("prependTraces3D",
+                cancellationToken,
+                currentChart.Id,
+                x, y, z, indices, max), cancellationToken);
     }
 
     /// <summary>
@@ -193,9 +243,8 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task Purge(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("purge", cancellationToken, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("purge", cancellationToken, currentChart.Id), cancellationToken);
     }
 
     /// <summary>
@@ -205,15 +254,14 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task React(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("react",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            dotNetObj.Value.Data?.Select(trace => trace?.PrepareJsInterop(SerializerOptions)),
-            dotNetObj.Value.Layout?.PrepareJsInterop(SerializerOptions),
-            dotNetObj.Value.Config?.PrepareJsInterop(SerializerOptions),
-            dotNetObj.Value.Frames?.PrepareJsInterop(SerializerOptions));
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("react",
+                cancellationToken,
+                currentChart.Id,
+                currentChart.Data?.Select(trace => trace?.PrepareJsInterop(SerializerOptions)),
+                currentChart.Layout?.PrepareJsInterop(SerializerOptions),
+                currentChart.Config?.PrepareJsInterop(SerializerOptions),
+                currentChart.Frames?.PrepareJsInterop(SerializerOptions)), cancellationToken);
     }
 
     /// <summary>
@@ -226,14 +274,13 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task Update(object dataUpdate = default, object layoutUpdate = default, IEnumerable<int> indices = default, CancellationToken cancellationToken = default)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("update",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            dataUpdate?.PrepareJsInterop(),
-            layoutUpdate?.PrepareJsInterop(),
-            indices?.PrepareJsInterop(SerializerOptions));
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("update",
+                cancellationToken,
+                currentChart.Id,
+                dataUpdate?.PrepareJsInterop(),
+                layoutUpdate?.PrepareJsInterop(),
+                indices?.PrepareJsInterop(SerializerOptions)), cancellationToken);
     }
 
     /// <summary>
@@ -242,12 +289,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task Relayout(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("relayout",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            dotNetObj.Value.Layout?.PrepareJsInterop(SerializerOptions));
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("relayout",
+                cancellationToken,
+                currentChart.Id,
+                currentChart.Layout?.PrepareJsInterop(SerializerOptions)), cancellationToken);
     }
 
     /// <summary>
@@ -257,12 +303,11 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task Relayout<T>(T value, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("relayout",
-            cancellationToken,
-            dotNetObj.Value.Id,
-            value?.PrepareJsInterop(SerializerOptions));
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("relayout",
+                cancellationToken,
+                currentChart.Id,
+                value?.PrepareJsInterop(SerializerOptions)), cancellationToken);
     }
 
     /// <summary>
@@ -273,10 +318,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task Restyle(ITrace trace, IEnumerable<int> indices, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("restyle", cancellationToken,
-            dotNetObj.Value.Id, trace?.PrepareJsInterop(SerializerOptions), indices);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("restyle", cancellationToken,
+                currentChart.Id, trace?.PrepareJsInterop(SerializerOptions), indices), cancellationToken);
     }
 
     /// <summary>
@@ -285,9 +329,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task SubscribeLegendClickEvent(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("subscribeLegendClickEvent", cancellationToken, dotNetObj, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("subscribeLegendClickEvent", cancellationToken, dotNetObj, currentChart.Id),
+            cancellationToken);
     }
 
     /// <summary>
@@ -296,9 +340,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task SubscribeClickEvent(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("subscribeClickEvent", cancellationToken, dotNetObj, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("subscribeClickEvent", cancellationToken, dotNetObj, currentChart.Id),
+            cancellationToken);
     }
 
     /// <summary>
@@ -307,9 +351,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task SubscribeHoverEvent(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("subscribeHoverEvent", cancellationToken, dotNetObj, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("subscribeHoverEvent", cancellationToken, dotNetObj, currentChart.Id),
+            cancellationToken);
     }
 
     /// <summary>
@@ -318,9 +362,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task SubscribeSelectedEvent(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("subscribeSelectedEvent", cancellationToken, dotNetObj, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("subscribeSelectedEvent", cancellationToken, dotNetObj, currentChart.Id),
+            cancellationToken);
     }
 
     /// <summary>
@@ -329,9 +373,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken"></param>
     public async Task SubscribeRelayoutEvent(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("subscribeRelayoutEvent", cancellationToken, dotNetObj, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("subscribeRelayoutEvent", cancellationToken, dotNetObj, currentChart.Id),
+            cancellationToken);
     }
 
     /// <summary>
@@ -340,9 +384,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken"></param>
     public async Task SubscribeRestyleEvent(CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        await jsRuntime.InvokeVoidAsync("subscribeRestyleEvent", cancellationToken, dotNetObj, dotNetObj.Value.Id);
+        await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeVoidAsync("subscribeRestyleEvent", cancellationToken, dotNetObj, currentChart.Id),
+            cancellationToken);
     }
 
     /// <summary>
@@ -355,9 +399,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <param name="cancellationToken">CancellationToken</param>
     public async Task<string> ToImage(ImageFormat format, uint height, uint width, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        return await jsRuntime.InvokeAsync<string>("toImage", cancellationToken, dotNetObj.Value.Id, format, height, width);
+        return await ExecuteAsync((runtime, currentChart) =>
+            runtime.InvokeAsync<string>("toImage", cancellationToken, currentChart.Id, format, height, width),
+            cancellationToken);
     }
 
     /// <summary>
@@ -371,9 +415,9 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
     /// <returns>Binary string of the exported image.</returns>
     public async Task<string> ToImage(ChartDefinition chartDefinition, ImageFormat format, uint height, uint width, CancellationToken cancellationToken)
     {
-        var jsRuntime = await moduleTask.Value;
-
-        return await jsRuntime.InvokeAsync<string>("toImageFromChartData", cancellationToken, chartDefinition.PrepareJsInterop(SerializerOptions), format, height, width);
+        return await ExecuteAsync((runtime, _) =>
+            runtime.InvokeAsync<string>("toImageFromChartData", cancellationToken,
+                chartDefinition.PrepareJsInterop(SerializerOptions), format, height, width), cancellationToken);
     }
 
     /// <inheritdoc />
@@ -390,49 +434,57 @@ public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBa
 
     private async ValueTask DisposeAsyncCore()
     {
-        if (disposed)
+        if (Interlocked.CompareExchange(ref disposeState, 1, 0) != 0)
         {
             return;
         }
 
-        disposed = true;
-        var chartId = dotNetObj?.Value.Id;
+        await lifecycleSemaphore.WaitAsync();
 
-        if (moduleTask?.IsValueCreated == true)
+        try
         {
-            IJSObjectReference jsRuntime = null;
+            var chartId = dotNetObj?.Value.Id;
 
-            try
+            if (moduleTask?.IsValueCreated == true)
             {
-                jsRuntime = await moduleTask.Value;
-            }
-            catch
-            {
-                // ignore
-            }
+                IJSObjectReference jsRuntime = null;
 
-            if (jsRuntime != null)
-            {
                 try
                 {
-                    await jsRuntime.InvokeVoidAsync("purge", chartId);
+                    jsRuntime = await moduleTask.Value;
                 }
                 catch
                 {
                     // ignore
                 }
 
-                try
+                if (jsRuntime != null)
                 {
-                    await jsRuntime.DisposeAsync();
-                }
-                catch
-                {
-                    // ignore
+                    try
+                    {
+                        await jsRuntime.InvokeVoidAsync("purge", chartId);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+
+                    try
+                    {
+                        await jsRuntime.DisposeAsync();
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
                 }
             }
+
+            dotNetObj?.Dispose();
         }
-
-        dotNetObj?.Dispose();
+        finally
+        {
+            lifecycleSemaphore.Release();
+        }
     }
 }

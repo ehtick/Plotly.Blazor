@@ -475,6 +475,16 @@ namespace Plotly.Blazor
         public Plotly.Blazor.LayoutLib.HoverModeEnum? HoverMode { get; set;} 
 
         /// <summary>
+        ///     Determines the order of items shown in unified hover labels. If <c>trace</c>,
+        ///     items are sorted by trace index. If &#39;value descending&#39;, items are
+        ///     sorted by value from largest to smallest. If &#39;value ascending&#39;,
+        ///     items are sorted by value from smallest to largest. Only applies when <c>hovermode</c>
+        ///     is &#39;x unified&#39; or &#39;y unified&#39;.
+        /// </summary>
+        [JsonPropertyName(@"hoversort")]
+        public Plotly.Blazor.LayoutLib.HoverSortEnum? HoverSort { get; set;} 
+
+        /// <summary>
         ///     Determines expansion of hover effects to other subplots If <c>single</c>
         ///     just the axis pair of the primary point is included without overlaying subplots.
         ///     If <c>overlaying</c> all subplots using the main axis and occupying the
@@ -1052,6 +1062,11 @@ namespace Plotly.Blazor
                     HoverMode.Equals(other.HoverMode)
                 ) && 
                 (
+                    HoverSort == other.HoverSort ||
+                    HoverSort != null &&
+                    HoverSort.Equals(other.HoverSort)
+                ) && 
+                (
                     HoverSubplots == other.HoverSubplots ||
                     HoverSubplots != null &&
                     HoverSubplots.Equals(other.HoverSubplots)
@@ -1299,6 +1314,7 @@ namespace Plotly.Blazor
                 if (HoverDistance != null) hashCode = hashCode * 59 + HoverDistance.GetHashCode();
                 if (HoverLabel != null) hashCode = hashCode * 59 + HoverLabel.GetHashCode();
                 if (HoverMode != null) hashCode = hashCode * 59 + HoverMode.GetHashCode();
+                if (HoverSort != null) hashCode = hashCode * 59 + HoverSort.GetHashCode();
                 if (HoverSubplots != null) hashCode = hashCode * 59 + HoverSubplots.GetHashCode();
                 if (Images != null) hashCode = hashCode * 59 + Images.GetHashCode();
                 if (Legend != null) hashCode = hashCode * 59 + Legend.GetHashCode();
