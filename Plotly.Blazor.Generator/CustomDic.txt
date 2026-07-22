@@ -358,3 +358,4 @@ zoominout=zoomInOut
 titledoubleclick=titleDoubleClick
 xrefsrc=xRefSrc
 yrefsrc=yRefSrc
+legendranksrc=legendRankSrc

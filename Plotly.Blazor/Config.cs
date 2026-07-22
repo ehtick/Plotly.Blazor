@@ -188,11 +188,8 @@ namespace Plotly.Blazor
         public decimal? PlotGlPixelRatio { get; set;} 
 
         /// <summary>
-        ///     When set it determines base URL for the &#39;Edit in Chart Studio&#39; <c>showEditInChartStudio</c>/<c>showSendToCloud</c>
-        ///     mode bar button and the showLink/sendData on-graph link. To enable sending
-        ///     your data to Chart Studio Cloud, you need to set both <c>plotlyServerURL</c>
-        ///     to <c>https://chart-studio.plotly.com</c> and also set <c>showSendToCloud</c>
-        ///     to true.
+        ///     Sets the URL for the <c>sendChartToCloud</c> modebar button. When clicked,
+        ///     the button will send the chart data to this URL.
         /// </summary>
         [JsonPropertyName(@"plotlyServerURL")]
         public string PlotlyServerUrl { get; set;} 
@@ -249,9 +246,7 @@ namespace Plotly.Blazor
         public bool? ShowAxisRangeEntryBoxes { get; set;} 
 
         /// <summary>
-        ///     Same as <c>showSendToCloud</c>, but use a pencil icon instead of a floppy-disk.
-        ///     Note that if both <c>showSendToCloud</c> and <c>showEditInChartStudio</c>
-        ///     are turned, only <c>showEditInChartStudio</c> will be honored.
+        ///     Deprecated. Use <c>showSendToCloud</c> instead.
         /// </summary>
         [JsonPropertyName(@"showEditInChartStudio")]
         public bool? ShowEditInChartStudio { get; set;} 
@@ -264,14 +259,10 @@ namespace Plotly.Blazor
         public bool? ShowLink { get; set;} 
 
         /// <summary>
-        ///     Should we include a ModeBar button, labeled &quot;Edit in Chart Studio&quot;,
-        ///     that sends this chart to chart-studio.plotly.com (formerly plot.ly) or another
-        ///     plotly server as specified by <c>plotlyServerURL</c> for editing, export,
-        ///     etc? Prior to version 1.43.0 this button was included by default, now it
-        ///     is opt-in using this flag. Note that this button can (depending on <c>plotlyServerURL</c>
-        ///     being set) send your data to an external server. However that server does
-        ///     not persist your data until you arrive at the Chart Studio and explicitly
-        ///     click <c>Save</c>.
+        ///     Should we include a modebar button that sends this chart to a URL specified
+        ///     by <c>plotlyServerURL</c>, for sharing the chart with others? Note that
+        ///     this button will (after a confirmation step) send chart data to an external
+        ///     server.
         /// </summary>
         [JsonPropertyName(@"showSendToCloud")]
         public bool? ShowSendToCloud { get; set;} 

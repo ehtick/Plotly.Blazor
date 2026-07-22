@@ -20,9 +20,9 @@ namespace Plotly.Blazor;
 /// <param name="useBasicVersion"></param>
 public class PlotlyJsInterop(IJSRuntime jsRuntime, PlotlyChart chart, bool useBasicVersion) : IAsyncDisposable, IDisposable
 {
-    private const string InteropPath = "./_content/Plotly.Blazor/plotly-interop-7.1.0.js";
-    private const string PlotlyPath = "./_content/Plotly.Blazor/plotly-3.5.0.min.js";
-    private const string PlotlyBasicPath = "./_content/Plotly.Blazor/plotly-basic-3.5.0.min.js";
+    private const string InteropPath = "./_content/Plotly.Blazor/plotly-interop-7.2.0.js";
+    private const string PlotlyPath = "./_content/Plotly.Blazor/plotly-3.7.0.min.js";
+    private const string PlotlyBasicPath = "./_content/Plotly.Blazor/plotly-basic-3.7.0.min.js";
 
     private readonly DotNetObjectReference<PlotlyChart> dotNetObj = DotNetObjectReference.Create(chart);
     private readonly Lazy<Task<IJSObjectReference>> moduleTask = new(LoadModulesAsync(jsRuntime, useBasicVersion));
